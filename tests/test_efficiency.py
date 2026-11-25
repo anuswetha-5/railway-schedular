@@ -67,6 +67,17 @@ class TestEfficiencyBenchmarks(unittest.TestCase):
 
     def test_scheduler_runtime_benchmark(self):
         """Verifies Coordinated Shadow Block Optimizer schedules entire corridor network in under 1500ms."""
+        # Ensure pending jobs exist so benchmark is completely idempotent across repeated runs
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM Jobs WHERE status IS NULL OR status = 'Pending'")
+        if cur.fetchone()[0] == 0:
+            cur.execute("UPDATE Jobs SET status = 'Pending', block_id = NULL, scheduled_start = NULL, scheduled_end = NULL")
+            cur.execute("DELETE FROM Block_Jobs")
+            cur.execute("DELETE FROM Block_Register")
+            conn.commit()
+        conn.close()
+
         t0 = time.perf_counter()
         blocks_created = run_scheduler(db_path=DB_PATH, horizon="All")
         t_total = (time.perf_counter() - t0) * 1000.0

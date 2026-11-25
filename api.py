@@ -33,7 +33,28 @@ except ImportError:
     from exceptions import SecurityValidationError
 
 # Security Configurations
-VALID_API_KEY = os.environ.get("RAILWAY_API_KEY", "IR-AI-OPS-SECRET-KEY-2026")
+def _resolve_api_key() -> str:
+    """Safely retrieves API key from environment, with local transient secure token fallback."""
+    env_key = os.environ.get("RAILWAY_API_KEY")
+    if env_key:
+        return env_key.strip()
+    key_file = os.path.join(BASE_DIR, ".api_key")
+    if os.path.exists(key_file):
+        try:
+            with open(key_file, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except Exception:
+            pass
+    import secrets
+    fallback = f"IR-KEY-{secrets.token_hex(16)}"
+    try:
+        with open(key_file, "w", encoding="utf-8") as f:
+            f.write(fallback)
+    except Exception:
+        pass
+    return fallback
+
+VALID_API_KEY = _resolve_api_key()
 MAX_REQUESTS_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", 60))
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "http://localhost:8501")
 

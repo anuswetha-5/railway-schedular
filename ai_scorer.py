@@ -146,6 +146,7 @@ def run_scoring_engine(db_path: Optional[str] = None, score_all: bool = False) -
     print(f"Found {len(jobs_to_score)} jobs to prioritize with AI algorithms.\n")
 
     scored_count = 0
+    batch_updates = []
     for job in jobs_to_score:
         (job_id, defect_sev, overdue, route_cls, age, gmt, 
          track_crit, psr, src) = job
@@ -154,9 +155,12 @@ def run_scoring_engine(db_path: Optional[str] = None, score_all: bool = False) -
             defect_sev, overdue, route_cls, age, gmt, track_crit, psr, src
         )
 
-        cursor.execute("UPDATE Jobs SET ai_score = ? WHERE job_id = ?", (final_score, job_id))
+        batch_updates.append((final_score, job_id))
         scored_count += 1
         print(f"  [AI SCORE] {job_id} ({src}) -> {final_score}/100 [Sev:{breakdown['severity_risk']}, Overdue:{breakdown['overdue_urgency']}, Cap:{breakdown['capacity_impact']}]")
+
+    if batch_updates:
+        cursor.executemany("UPDATE Jobs SET ai_score = ? WHERE job_id = ?", batch_updates)
 
     conn.commit()
     conn.close()

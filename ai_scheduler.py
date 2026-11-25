@@ -252,17 +252,23 @@ def run_scheduler(db_path: Optional[str] = None, horizon: str = "All") -> int:
         print(f"  -> Tasks: {total_tasks_in_block} jobs | Block Time: {max_duration_used}m | Downtime Saved: {downtime_saved}m")
 
         # Link and schedule bundled companion jobs
+        companion_links = []
+        companion_updates = []
         for bj in bundled_jobs:
             bj_id, bj_task, bj_dept, bj_src, bj_dur, bj_power, bj_mach, bj_psr = bj
-            cursor.execute("INSERT OR REPLACE INTO Block_Jobs (block_id, job_id) VALUES (?, ?)", (new_block_id, bj_id))
-            cursor.execute("""
+            companion_links.append((new_block_id, bj_id))
+            companion_updates.append((sched_start_str, sched_end_str, new_block_id, safety_status, bj_id))
+            total_jobs_scheduled += 1
+            print(f"     + Coordinated: {bj_id} [{bj_src}] {bj_task} ({bj_dur}m | Mach:{bj_mach})")
+
+        if companion_links:
+            cursor.executemany("INSERT OR REPLACE INTO Block_Jobs (block_id, job_id) VALUES (?, ?)", companion_links)
+            cursor.executemany("""
                 UPDATE Jobs 
                 SET status = 'Scheduled', scheduled_start = ?, scheduled_end = ?, block_id = ?,
                     safety_clearance_status = ?
                 WHERE job_id = ?
-            """, (sched_start_str, sched_end_str, new_block_id, safety_status, bj_id))
-            total_jobs_scheduled += 1
-            print(f"     + Coordinated: {bj_id} [{bj_src}] {bj_task} ({bj_dur}m | Mach:{bj_mach})")
+            """, companion_updates)
 
         # Update remaining corridor availability
         if actual_end_dt < block_end_dt:

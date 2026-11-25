@@ -23,5 +23,9 @@ env/
 # VS Code
 .vscode/
 
-# Environment variables
+# Environment variables & secrets
 .env
+.api_key
+*.key
+*.pem
+secrets/

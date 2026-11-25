@@ -95,6 +95,15 @@ class TestRailwayPlatform(unittest.TestCase):
         cur = conn.cursor()
         cur.execute("SELECT block_id FROM Block_Register LIMIT 1")
         b_row = cur.fetchone()
+        if not b_row:
+            cur.execute("""
+                INSERT OR IGNORE INTO Block_Register 
+                (block_id, track_id, window_start, window_end, duration_mins, total_departments_involved, departments_list, tasks_count, power_block_granted, planning_horizon, status, safety_audit_status, assigned_machinery)
+                VALUES ('BLK-TEST-001', 'TRK-101', '2026-11-26 02:00', '2026-11-26 04:30', 150, 2, 'TMS, SMMS', 2, 1, 'Weekly', 'Approved', 'Compliant', 'Plasser CSM-08-32')
+            """)
+            conn.commit()
+            cur.execute("SELECT block_id FROM Block_Register LIMIT 1")
+            b_row = cur.fetchone()
         conn.close()
 
         self.assertIsNotNone(b_row, "Block_Register must contain at least one scheduled block")

@@ -61,6 +61,9 @@ def get_connection():
         pass
     try:
         conn.execute("PRAGMA journal_mode=DELETE;")
+        conn.execute("PRAGMA cache_size = -64000;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn.execute("PRAGMA temp_store = MEMORY;")
     except Exception:
         pass
     return conn

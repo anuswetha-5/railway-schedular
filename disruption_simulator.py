@@ -1,9 +1,19 @@
 import os
 import sqlite3
+import logging
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import pandas as pd
 
-def simulate_train_delay(track_id, run_date, train_id_or_number, delay_mins, db_path=None):
+logger = logging.getLogger("railway_scheduler.simulator")
+
+def simulate_train_delay(
+    track_id: str,
+    run_date: Optional[str],
+    train_id_or_number: str,
+    delay_mins: int,
+    db_path: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Simulates injecting a train delay and detects resulting clashes with:
     1. Approved Coordinated Shadow Blocks (Possession conflicts)
@@ -194,7 +204,13 @@ def simulate_train_delay(track_id, run_date, train_id_or_number, delay_mins, db_
     }
 
 
-def simulate_emergency_possession(track_id, run_date, start_time_str, duration_mins, db_path=None):
+def simulate_emergency_possession(
+    track_id: str,
+    run_date: str,
+    start_time_str: str,
+    duration_mins: int,
+    db_path: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Simulates a sudden emergency track possession (e.g. rail fracture or OHE failure)
     and lists all train cancellations or regulations required.

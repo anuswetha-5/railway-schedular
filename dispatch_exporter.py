@@ -1,9 +1,16 @@
 import os
 import sqlite3
+import logging
+from typing import Tuple, Dict, Any, Optional
 from datetime import datetime
 import pandas as pd
 
-def generate_joint_possession_notice_t409(block_id, db_path=None):
+logger = logging.getLogger("railway_scheduler.dispatch")
+
+def generate_joint_possession_notice_t409(
+    block_id: str,
+    db_path: Optional[str] = None
+) -> Tuple[Optional[str], Any]:
     """
     Generates an authentic Indian Railways Joint Engineering, S&T and Electrical
     Possession Order (Form T/409 / Joint Block Caution Certificate).
@@ -121,7 +128,7 @@ def generate_joint_possession_notice_t409(block_id, db_path=None):
     }
 
 
-def export_blocks_to_csv(db_path=None):
+def export_blocks_to_csv(db_path: Optional[str] = None) -> str:
     """Exports Block_Register to standard CSV string for external COA/FOIS consumption."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if db_path is None:
@@ -143,7 +150,7 @@ def export_blocks_to_csv(db_path=None):
     return df.to_csv(index=False)
 
 
-def export_backlog_to_csv(db_path=None):
+def export_backlog_to_csv(db_path: Optional[str] = None) -> str:
     """Exports integrated maintenance backlog to standard CSV string."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if db_path is None:
@@ -167,7 +174,7 @@ def export_backlog_to_csv(db_path=None):
     return df.to_csv(index=False)
 
 
-def export_fleet_to_csv(db_path=None):
+def export_fleet_to_csv(db_path: Optional[str] = None) -> str:
     """Exports Machinery_Fleet to standard CSV string."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if db_path is None:

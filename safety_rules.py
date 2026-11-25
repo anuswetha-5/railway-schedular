@@ -1,7 +1,16 @@
 import os
 import sqlite3
+import logging
+from typing import List, Dict, Any, Optional, Tuple
 
-def audit_block_safety(track_id, jobs_in_block, power_block_granted=False, db_path=None):
+logger = logging.getLogger("railway_scheduler.safety")
+
+def audit_block_safety(
+    track_id: str,
+    jobs_in_block: List[Dict[str, Any]],
+    power_block_granted: bool = False,
+    db_path: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Audits a planned joint possession / Shadow Block against Indian Railways
     Safety Clearance & Interlocking protocols:
@@ -119,7 +128,13 @@ def audit_block_safety(track_id, jobs_in_block, power_block_granted=False, db_pa
     }
 
 
-def check_machine_availability(machine_type, track_id, window_start, window_end, db_path=None):
+def check_machine_availability(
+    machine_type: str,
+    track_id: str,
+    window_start: str,
+    window_end: str,
+    db_path: Optional[str] = None
+) -> Tuple[bool, str]:
     """Verifies that a required track machine is available and not already committed to another block."""
     if not machine_type or machine_type in ("None", "Manual Gang & Tool Rake"):
         return True, "Standard manual gang / no special machine contention."
