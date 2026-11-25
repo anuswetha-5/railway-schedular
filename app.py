@@ -138,55 +138,7 @@ def safe_read_sql(sql, conn, params=None, default_cols=None):
 # Plotly charts, so the two can never drift apart again.
 # ============================================================
 
-THEMES = {
-    "Light": {
-        "color_scheme": "light",
-        "bg": "#f1ecdf", "panel": "#fbf8ef", "panel2": "#f5f0e4",
-        "line": "#cfc4ad", "line2": "#ded5c3", "soft": "#e7dfcf",
-        "text": "#2d2b27", "muted": "#746d61",
-        "input": "#fffdf7", "input_text": "#2d2b27",
-        "blue": "#2e5d73", "navy": "#213d4a", "purple": "#684b6f",
-        "red": "#7b302b", "brass": "#a67c3c", "green": "#315b4a",
-        "amber": "#b38a4e",
-        "sidebar": "#29483d", "sidebar2": "#365b4e", "sidebar_text": "#f6f0e3",
-        "shadow": "0 1px 2px rgba(64,52,35,.10)",
-        "chart_paper": "#fbf8ef", "chart_plot": "#fbf8ef",
-        "chart_font": "#2d2b27", "chart_grid": "#ddd4c4",
-        "texture_opacity": ".08",
-        "status_colors": {"Scheduled": "#557d69", "Pending": "#b38a4e", "Delayed": "#a84f47"},
-        "severity_colors": {"Low": "#6b806c", "Medium": "#a67c3c", "High": "#9b5b3f", "Critical": "#7b302b"},
-        "dept_scale": [[0, "#c9b58c"], [0.55, "#8d6f42"], [1, "#5b4330"]],
-    },
-    "Dark": {
-        "color_scheme": "dark",
-        "bg": "#151816", "panel": "#202521", "panel2": "#292e2a",
-        "line": "#485049", "line2": "#383f39", "soft": "#303631",
-        "text": "#eee9dc", "muted": "#b8b1a3",
-        "input": "#1b211d", "input_text": "#eee9dc",
-        "blue": "#88aebc", "navy": "#a9bec6", "purple": "#ad91b3",
-        "red": "#c56a60", "brass": "#c9a15f", "green": "#8fbaa0",
-        "amber": "#d3ab6e",
-        "sidebar": "#1e3930", "sidebar2": "#2c5144", "sidebar_text": "#f3eee2",
-        "shadow": "0 1px 4px rgba(0,0,0,.32)",
-        "chart_paper": "#202521", "chart_plot": "#202521",
-        "chart_font": "#eee9dc", "chart_grid": "#414840",
-        "texture_opacity": ".025",
-        "status_colors": {"Scheduled": "#7fb497", "Pending": "#d3ab6e", "Delayed": "#c56a60"},
-        "severity_colors": {"Low": "#8fbaa0", "Medium": "#c9a15f", "High": "#c98866", "Critical": "#c56a60"},
-        "dept_scale": [[0, "#5b4330"], [0.55, "#8d6f42"], [1, "#c9b58c"]],
-    },
-}
-
-
-def css_vars_block(theme):
-    """Turn a theme dict into a `--name:value;` string for :root."""
-    keys = [
-        "bg", "panel", "panel2", "line", "line2", "text", "muted", "soft",
-        "input", "input_text", "blue", "navy", "purple", "red", "brass",
-        "green", "amber", "chart_grid", "chart_paper", "sidebar", "sidebar2",
-        "sidebar_text", "shadow",
-    ]
-    return "".join(f"--{k.replace('_', '-')}:{theme[k]};" for k in keys)
+from themes import THEMES, css_vars_block
 
 
 # ============================================================
@@ -337,6 +289,39 @@ button[data-testid="stBaseButton-header"] {{ color:var(--text)!important; }}
 .score-fill {{ height:100%; border-radius:4px; }}
 .score-value {{ min-width:22px; text-align:right; color:var(--text); font-weight:600; }}
 .status-pill {{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700; letter-spacing:.3px; border:1px solid transparent; }}
+.sr-only {{
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}}
+:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {{
+    outline: 2px solid var(--brass) !important;
+    outline-offset: 2px !important;
+}}
+.skip-link {{
+    position: absolute;
+    top: -45px;
+    left: 14px;
+    background: var(--navy);
+    color: #ffffff !important;
+    padding: 6px 12px;
+    z-index: 9999;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+    transition: top 0.2s ease;
+}}
+.skip-link:focus {{
+    top: 8px;
+}}
 @media (max-width: 700px) {{
     .main .block-container {{ padding:0.75rem 0.6rem 1.5rem; }}
     .topbar {{ flex-direction:column; align-items:flex-start; }}
@@ -353,50 +338,60 @@ button[data-testid="stBaseButton-header"] {{ color:var(--text)!important; }}
 # ============================================================
 st.markdown(
     f"""
-<div class="topbar">
+<a href="#main-corridor-workspace" class="skip-link">Skip to Corridor Operations Workspace</a>
+<div class="topbar" role="banner">
 <div class="brand">
-<div class="brand-logo"><img src="https://png.pngtree.com/png-vector/20230109/ourmid/pngtree-train-on-a-white-background-png-image_6556767.png" alt="Train"></div>
+<div class="brand-logo"><img src="https://png.pngtree.com/png-vector/20230109/ourmid/pngtree-train-on-a-white-background-png-image_6556767.png" alt="Indian Railways Locomotive Logo"></div>
 <div>
-<div class="brand-title">Railway Corridor Maintenance Management</div>
+<h1 class="brand-title" style="margin:0;font-size:17px;">Railway Corridor Maintenance Management</h1>
 <div class="brand-sub">OPERATIONS &nbsp;|&nbsp; WAY &amp; WORKS &nbsp;|&nbsp; MAINTENANCE</div>
 </div>
 </div>
 <div class="topbar-right">
-<div class="clock-chip">{datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%d %b %Y, %H:%M")}</div>
-<div class="system-state">SYSTEM ONLINE</div>
+<div class="clock-chip" aria-label="System Time">{datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%d %b %Y, %H:%M")}</div>
+<div class="system-state" aria-label="Operational State">SYSTEM ONLINE</div>
 </div>
 </div>
+<div id="main-corridor-workspace" tabindex="-1"></div>
 """,
     unsafe_allow_html=True,
 )
 
 
 # ============================================================
-# CONNECTION + KPI DATA
+# CONNECTION + KPI DATA (CACHED FOR HIGH PERFORMANCE)
 # ============================================================
 conn = get_connection()
 
-def count_query(sql):
+@st.cache_data(ttl=60)
+def fetch_kpi_metrics(db_path):
+    c = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
     try:
-        res = safe_read_sql(sql, conn, default_cols=["c"])
-        if not res.empty and "c" in res.columns:
-            return int(res["c"].iloc[0])
-        return 0
-    except Exception:
-        return 0
+        def cq(sql):
+            try:
+                r = pd.read_sql_query(sql, c)
+                return int(r.iloc[0, 0]) if not r.empty and pd.notna(r.iloc[0, 0]) else 0
+            except Exception:
+                return 0
 
-total_jobs = count_query("SELECT COUNT(*) AS c FROM Jobs")
-pending_jobs = count_query("SELECT COUNT(*) AS c FROM Jobs WHERE status IS NULL OR status = 'Pending'")
-scheduled_jobs = count_query("SELECT COUNT(*) AS c FROM Jobs WHERE status = 'Scheduled'")
-delayed_jobs = count_query("SELECT COUNT(*) AS c FROM Jobs WHERE status = 'Delayed'")
-total_blocks = count_query("SELECT COUNT(*) AS c FROM Block_Register")
+        tot_j = cq("SELECT COUNT(*) FROM Jobs")
+        pen_j = cq("SELECT COUNT(*) FROM Jobs WHERE status IS NULL OR status = 'Pending'")
+        sch_j = cq("SELECT COUNT(*) FROM Jobs WHERE status = 'Scheduled'")
+        del_j = cq("SELECT COUNT(*) FROM Jobs WHERE status = 'Delayed'")
+        tot_b = cq("SELECT COUNT(*) FROM Block_Register")
 
-res_dt = safe_read_sql("SELECT COALESCE(SUM(corridor_downtime_saved_mins), 0) AS s FROM Block_Register", conn, default_cols=["s"])
-total_downtime_saved_mins = int(res_dt["s"].iloc[0]) if not res_dt.empty and "s" in res_dt.columns and pd.notna(res_dt["s"].iloc[0]) else 0
+        r_dt = pd.read_sql_query("SELECT COALESCE(SUM(corridor_downtime_saved_mins), 0) FROM Block_Register", c)
+        dt_saved = int(r_dt.iloc[0, 0]) if not r_dt.empty and pd.notna(r_dt.iloc[0, 0]) else 0
 
-res_mt = safe_read_sql("SELECT COALESCE(SUM(min_duration_needed), 1) AS s FROM Jobs WHERE status = 'Scheduled'", conn, default_cols=["s"])
-total_maint_time = int(res_mt["s"].iloc[0]) if not res_mt.empty and "s" in res_mt.columns and pd.notna(res_mt["s"].iloc[0]) else 1
-uptime_gain_pct = round((total_downtime_saved_mins / max(total_maint_time, 1)) * 100.0, 1)
+        r_mt = pd.read_sql_query("SELECT COALESCE(SUM(min_duration_needed), 1) FROM Jobs WHERE status = 'Scheduled'", c)
+        mt_time = int(r_mt.iloc[0, 0]) if not r_mt.empty and pd.notna(r_mt.iloc[0, 0]) else 1
+        gain_pct = round((dt_saved / max(mt_time, 1)) * 100.0, 1)
+
+        return tot_j, pen_j, sch_j, del_j, tot_b, dt_saved, gain_pct
+    finally:
+        c.close()
+
+total_jobs, pending_jobs, scheduled_jobs, delayed_jobs, total_blocks, total_downtime_saved_mins, uptime_gain_pct = fetch_kpi_metrics(DB_PATH)
 
 
 # ============================================================
@@ -449,11 +444,13 @@ with st.sidebar:
             st.success(f"Generated {count} Coordinated Block(s) across departments!")
         else:
             st.info("No matching pending jobs fit available corridor windows.")
+        st.cache_data.clear()
         st.rerun()
 
     if st.button("Reset & Regenerate Database", use_container_width=True):
         with st.spinner("Regenerating authentic TMS, SMMS, TDMS & COA dataset..."):
             reset_database()
+        st.cache_data.clear()
         st.success("Database cleanly re-initialized with 30-day timetable!")
         st.rerun()
 
@@ -567,6 +564,7 @@ with st.sidebar:
                         "time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%H:%M:%S")
                     }
                     st.session_state["search_job_query"] = j_id
+                    st.cache_data.clear()
                     st.rerun()
                 except sqlite3.IntegrityError as err:
                     if "UNIQUE constraint failed" in str(err):
@@ -624,113 +622,95 @@ with st.sidebar:
 # ============================================================
 # LOAD DATA USED BY MULTIPLE TABS
 # ============================================================
-blocks_df = safe_read_sql(
-    """
-    SELECT
-        b.block_id AS 'Block ID',
-        b.track_id AS 'Track',
-        t.section_name AS 'Corridor Section',
-        b.window_start AS 'Window Start',
-        b.window_end AS 'Window End',
-        b.duration_mins AS 'Duration (m)',
-        b.total_departments_involved AS 'Depts Involved',
-        b.departments_list AS 'Consolidated Departments',
-        b.tasks_count AS 'Tasks Bundled',
-        CASE WHEN b.power_block_granted = 1 THEN 'Yes (OHE Off)' ELSE 'No' END AS 'Power Block',
-        COALESCE(b.assigned_machinery, 'None') AS 'Machinery',
-        COALESCE(b.safety_audit_status, 'Compliant') AS 'Safety Audit',
-        b.corridor_downtime_saved_mins AS 'Downtime Saved (m)',
-        b.planning_horizon AS 'Horizon',
-        b.status AS 'Status'
-    FROM Block_Register b
-    LEFT JOIN Tracks t ON b.track_id = t.track_id
-    ORDER BY b.window_start ASC
-    """,
-    conn,
-    default_cols=[
-        'Block ID', 'Track', 'Corridor Section', 'Window Start', 'Window End',
-        'Duration (m)', 'Depts Involved', 'Consolidated Departments', 'Tasks Bundled',
-        'Power Block', 'Machinery', 'Safety Audit', 'Downtime Saved (m)', 'Horizon', 'Status'
-    ]
-)
+@st.cache_data(ttl=60)
+def fetch_dashboard_tables(db_path):
+    c = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
+    try:
+        b_df = pd.read_sql_query("""
+            SELECT
+                b.block_id AS 'Block ID',
+                b.track_id AS 'Track',
+                t.section_name AS 'Corridor Section',
+                b.window_start AS 'Window Start',
+                b.window_end AS 'Window End',
+                b.duration_mins AS 'Duration (m)',
+                b.total_departments_involved AS 'Depts Involved',
+                b.departments_list AS 'Consolidated Departments',
+                b.tasks_count AS 'Tasks Bundled',
+                CASE WHEN b.power_block_granted = 1 THEN 'Yes (OHE Off)' ELSE 'No' END AS 'Power Block',
+                COALESCE(b.assigned_machinery, 'None') AS 'Machinery',
+                COALESCE(b.safety_audit_status, 'Compliant') AS 'Safety Audit',
+                b.corridor_downtime_saved_mins AS 'Downtime Saved (m)',
+                b.planning_horizon AS 'Horizon',
+                b.status AS 'Status'
+            FROM Block_Register b
+            LEFT JOIN Tracks t ON b.track_id = t.track_id
+            ORDER BY b.window_start ASC
+        """, c)
 
-jobs_df = safe_read_sql(
-    """
-    SELECT
-        j.job_id AS 'Job ID',
-        j.track_id AS 'Track',
-        t.section_name AS 'Section',
-        j.source_system AS 'Source',
-        j.department AS 'Department',
-        j.maintenance_type AS 'Type',
-        j.task AS 'Task Details',
-        j.defect_severity AS 'Severity',
-        j.overdue_days AS 'Overdue (d)',
-        j.speed_restriction_imposed AS 'PSR (km/h)',
-        j.min_duration_needed AS 'Duration (m)',
-        CASE WHEN j.power_block_required = 1 THEN 'Yes' ELSE 'No' END AS 'Power Req',
-        COALESCE(j.required_machinery, 'None') AS 'Machinery',
-        COALESCE(j.safety_clearance_status, 'Pending Audit') AS 'Safety Status',
-        j.planning_horizon AS 'Horizon',
-        j.request_date AS 'Requested',
-        j.deadline AS 'Deadline',
-        j.ai_score AS 'AI Score',
-        COALESCE(j.status, 'Pending') AS 'Status'
-    FROM Jobs j
-    LEFT JOIN Tracks t ON j.track_id = t.track_id
-    ORDER BY j.ai_score DESC
-    """,
-    conn,
-    default_cols=[
-        'Job ID', 'Track', 'Section', 'Source', 'Department', 'Type', 'Task Details',
-        'Severity', 'Overdue (d)', 'PSR (km/h)', 'Duration (m)', 'Power Req',
-        'Machinery', 'Safety Status', 'Horizon', 'Requested', 'Deadline', 'AI Score', 'Status'
-    ]
-)
+        j_df = pd.read_sql_query("""
+            SELECT
+                j.job_id AS 'Job ID',
+                j.track_id AS 'Track',
+                t.section_name AS 'Section',
+                j.source_system AS 'Source',
+                j.department AS 'Department',
+                j.maintenance_type AS 'Type',
+                j.task AS 'Task Details',
+                j.defect_severity AS 'Severity',
+                j.overdue_days AS 'Overdue (d)',
+                j.speed_restriction_imposed AS 'PSR (km/h)',
+                j.min_duration_needed AS 'Duration (m)',
+                CASE WHEN j.power_block_required = 1 THEN 'Yes' ELSE 'No' END AS 'Power Req',
+                COALESCE(j.required_machinery, 'None') AS 'Machinery',
+                COALESCE(j.safety_clearance_status, 'Pending Audit') AS 'Safety Status',
+                j.planning_horizon AS 'Horizon',
+                j.request_date AS 'Requested',
+                j.deadline AS 'Deadline',
+                j.ai_score AS 'AI Score',
+                COALESCE(j.status, 'Pending') AS 'Status'
+            FROM Jobs j
+            LEFT JOIN Tracks t ON j.track_id = t.track_id
+            ORDER BY j.ai_score DESC
+        """, c)
 
-avail_df = safe_read_sql(
-    """
-    SELECT
-        a.availability_id AS 'Window ID',
-        a.track_id AS 'Track',
-        t.section_name AS 'Section',
-        a.available_date AS 'Date',
-        a.window_start AS 'Available From',
-        a.window_end AS 'Available Until',
-        a.duration_mins AS 'Duration (m)',
-        a.window_type AS 'Window Type'
-    FROM Corridor_Availability a
-    LEFT JOIN Tracks t ON a.track_id = t.track_id
-    ORDER BY a.available_date ASC, a.window_start ASC
-    """,
-    conn,
-    default_cols=[
-        'Window ID', 'Track', 'Section', 'Date', 'Available From',
-        'Available Until', 'Duration (m)', 'Window Type'
-    ]
-)
+        a_df = pd.read_sql_query("""
+            SELECT
+                a.availability_id AS 'Window ID',
+                a.track_id AS 'Track',
+                t.section_name AS 'Section',
+                a.available_date AS 'Date',
+                a.window_start AS 'Available From',
+                a.window_end AS 'Available Until',
+                a.duration_mins AS 'Duration (m)',
+                a.window_type AS 'Window Type'
+            FROM Corridor_Availability a
+            LEFT JOIN Tracks t ON a.track_id = t.track_id
+            ORDER BY a.available_date ASC, a.window_start ASC
+        """, c)
 
-trains_df = safe_read_sql(
-    """
-    SELECT
-        tr.train_id AS 'Instance ID',
-        tr.train_number AS 'Train No.',
-        tr.train_name AS 'Train Name',
-        tr.train_type AS 'Category',
-        tr.track_id AS 'Track',
-        tr.run_date AS 'Date',
-        tr.scheduled_arrival AS 'Arrival',
-        tr.scheduled_departure AS 'Departure',
-        tr.flexibility_mins AS 'Flexibility (m)'
-    FROM Trains tr
-    ORDER BY tr.run_date ASC, tr.scheduled_arrival ASC
-    """,
-    conn,
-    default_cols=[
-        'Instance ID', 'Train No.', 'Train Name', 'Category', 'Track',
-        'Date', 'Arrival', 'Departure', 'Flexibility (m)'
-    ]
-)
+        t_df = pd.read_sql_query("""
+            SELECT
+                tr.train_id AS 'Instance ID',
+                tr.train_number AS 'Train No.',
+                tr.train_name AS 'Train Name',
+                tr.train_type AS 'Category',
+                tr.track_id AS 'Track',
+                tr.run_date AS 'Date',
+                tr.scheduled_arrival AS 'Arrival',
+                tr.scheduled_departure AS 'Departure',
+                tr.flexibility_mins AS 'Flexibility (m)'
+            FROM Trains tr
+            ORDER BY tr.run_date ASC, tr.scheduled_arrival ASC
+        """, c)
+        return b_df, j_df, a_df, t_df
+    except Exception as e:
+        print(f"Error reading dashboard tables: {e}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+    finally:
+        c.close()
+
+blocks_df, jobs_df, avail_df, trains_df = fetch_dashboard_tables(DB_PATH)
 
 
 # ============================================================
@@ -750,12 +730,12 @@ def render_vintage_table(df, progress_column=None):
         return
     import html
     cols = list(df.columns)
-    parts = ['<div class="vintage-table-wrap"><table class="vintage-table"><thead><tr>']
+    parts = ['<div class="vintage-table-wrap" role="region" aria-label="Railway Operations Data Table" tabindex="0"><table class="vintage-table" role="table"><thead role="rowgroup"><tr role="row">']
     for col in cols:
-        parts.append(f'<th>{html.escape(str(col))}</th>')
-    parts.append('</tr></thead><tbody>')
+        parts.append(f'<th scope="col" role="columnheader">{html.escape(str(col))}</th>')
+    parts.append('</tr></thead><tbody role="rowgroup">')
     for _, row in df.iterrows():
-        parts.append('<tr>')
+        parts.append('<tr role="row">')
         for col in cols:
             value = row[col]
             if pd.isna(value):
@@ -765,7 +745,8 @@ def render_vintage_table(df, progress_column=None):
                     score = max(0, min(100, float(value)))
                     fill_color = _score_color(score)
                     cell = (
-                        '<div class="score-wrap"><div class="score-bar">'
+                        f'<div class="score-wrap" role="progressbar" aria-valuenow="{score:.0f}" aria-valuemin="0" aria-valuemax="100" aria-label="AI Priority Score {score:.0f} out of 100">'
+                        f'<div class="score-bar">'
                         f'<div class="score-fill" style="width:{score:.0f}%;background:{fill_color}"></div>'
                         f'</div><span class="score-value">{score:.0f}</span></div>'
                     )
@@ -781,10 +762,10 @@ def render_vintage_table(df, progress_column=None):
                     color = resolved_theme["red"]
                 else:
                     color = resolved_theme["muted"]
-                cell = f'<span class="status-pill" style="background:{color}22;color:{color};border-color:{color}55">{html.escape(val_str)}</span>'
+                cell = f'<span class="status-pill" style="background:{color}22;color:{color};border-color:{color}55"><span class="sr-only">Status: </span>{html.escape(val_str)}</span>'
             else:
                 cell = html.escape(str(value))
-            parts.append(f'<td>{cell}</td>')
+            parts.append(f'<td role="cell">{cell}</td>')
         parts.append('</tr>')
     parts.append('</tbody></table></div>')
     st.markdown(''.join(parts), unsafe_allow_html=True)
@@ -1375,6 +1356,7 @@ with tab6:
             if st.button("Generate PdM Work Order", type="primary", use_container_width=True, key="btn_gen_pdm"):
                 new_j = generate_proactive_work_order(pdm_target_trk, db_path=DB_PATH)
                 if new_j:
+                    st.cache_data.clear()
                     st.success(f"Dispatched Proactive Work Order {new_j} into Integrated Backlog!")
                     st.rerun()
 

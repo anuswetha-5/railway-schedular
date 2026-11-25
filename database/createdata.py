@@ -200,6 +200,9 @@ def init_db(db_path=None, drop_existing=False):
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_avail_window ON Corridor_Availability (track_id, available_date, window_start);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_block_timeline ON Block_Register (track_id, window_start, planning_horizon);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_machinery_status ON Machinery_Fleet (status, machine_type);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_jobs_filter ON Jobs (status, planning_horizon, source_system, defect_severity);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_trains_track_window ON Trains (track_id, run_date, scheduled_arrival, scheduled_departure);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_blocks_track_time ON Block_Register (track_id, window_start, window_end);")
 
     conn.commit()
     conn.close()

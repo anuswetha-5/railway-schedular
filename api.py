@@ -2,9 +2,12 @@ import os
 import sys
 import json
 import sqlite3
+import time
+import re
+from collections import defaultdict
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database", "railway_planning.db")
@@ -19,6 +22,7 @@ try:
     from predictive_health import analyze_all_tracks_health, get_predictive_alerts, generate_proactive_work_order
     from disruption_simulator import simulate_train_delay, simulate_emergency_possession
     from dispatch_exporter import generate_joint_possession_notice_t409, export_blocks_to_csv, export_backlog_to_csv
+    from exceptions import SecurityValidationError
 except ImportError:
     sys.path.insert(0, BASE_DIR)
     from ai_scheduler import run_scheduler
@@ -26,39 +30,84 @@ except ImportError:
     from predictive_health import analyze_all_tracks_health, get_predictive_alerts, generate_proactive_work_order
     from disruption_simulator import simulate_train_delay, simulate_emergency_possession
     from dispatch_exporter import generate_joint_possession_notice_t409, export_blocks_to_csv, export_backlog_to_csv
+    from exceptions import SecurityValidationError
+
+# Security Configurations
+VALID_API_KEY = os.environ.get("RAILWAY_API_KEY", "IR-AI-OPS-SECRET-KEY-2026")
+MAX_REQUESTS_PER_MINUTE = int(os.environ.get("RATE_LIMIT_PER_MINUTE", 60))
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "http://localhost:8501")
+
+# In-Memory Rate Limiter: IP -> list of request timestamps
+RATE_LIMIT_STORE = defaultdict(list)
 
 
 class RailwayAPIHandler(BaseHTTPRequestHandler):
-    """REST API Handler for Indian Railways AI Operations & Block Planning System."""
+    """Hardened REST API Handler for Indian Railways AI Operations & Block Planning System."""
 
     def _set_headers(self, status=200, content_type="application/json"):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # Defense-in-Depth Security Headers
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Security-Policy", "default-src 'self'")
+        self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("X-XSS-Protection", "1; mode=block")
+        # Origin Whitelist CORS
+        self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
         self.end_headers()
 
     def do_OPTIONS(self):
         self._set_headers(200)
 
+    def _check_rate_limit(self) -> bool:
+        """Enforces sliding-window rate limit per client IP."""
+        client_ip = self.client_address[0] if self.client_address else "127.0.0.1"
+        now = time.time()
+        # Evict timestamps older than 60 seconds
+        RATE_LIMIT_STORE[client_ip] = [ts for ts in RATE_LIMIT_STORE[client_ip] if now - ts < 60]
+        if len(RATE_LIMIT_STORE[client_ip]) >= MAX_REQUESTS_PER_MINUTE:
+            return False
+        RATE_LIMIT_STORE[client_ip].append(now)
+        return True
+
+    def _check_auth(self) -> bool:
+        """Validates API Key from X-API-Key or Authorization Bearer header."""
+        key = self.headers.get("X-API-Key")
+        if not key:
+            auth_header = self.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                key = auth_header[7:].strip()
+        return key == VALID_API_KEY
+
     def _read_body_json(self):
         content_length = int(self.headers.get("Content-Length", 0))
         if content_length == 0:
             return {}
+        if content_length > 1024 * 1024:  # 1MB limit to prevent memory exhaustion
+            raise SecurityValidationError("Request payload exceeds 1MB threshold")
         body = self.rfile.read(content_length)
         try:
             return json.loads(body.decode("utf-8"))
         except Exception:
-            return {}
+            raise SecurityValidationError("Malformed JSON body")
 
     def do_GET(self):
+        # 1. Rate Limiting Check
+        if not self._check_rate_limit():
+            self._set_headers(429)
+            self.wfile.write(json.dumps({"error": "Too Many Requests: Rate limit exceeded (60 req/min)"}).encode())
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
         query = parse_qs(parsed.query)
 
-        # 1. System Health & Platform Meta
-        if path == "/api/v1/health" or path == "/health":
+        # Public Health & Liveness Probe
+        if path in ("/api/v1/health", "/health"):
             conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
             cur.execute("SELECT COUNT(*) FROM Tracks")
@@ -80,8 +129,17 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
                 "tracks_count": n_tracks,
                 "jobs_count": n_jobs,
                 "scheduled_blocks_count": n_blocks,
-                "predictive_high_risk_alerts": len(alerts_df)
+                "predictive_high_risk_alerts": len(alerts_df),
+                "security_status": "HARDENED_RBAC_ACTIVE"
             }, indent=2).encode())
+            return
+
+        # Protected Endpoints: Require Authentication
+        if not self._check_auth():
+            self._set_headers(401)
+            self.wfile.write(json.dumps({
+                "error": "Unauthorized: Valid API Key required in X-API-Key or Authorization Bearer header."
+            }).encode())
             return
 
         # 2. Tracks & Asset Quality Indices
@@ -108,11 +166,15 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
             params = []
             where_clauses = []
             if "horizon" in query:
-                where_clauses.append("b.planning_horizon = ?")
-                params.append(query["horizon"][0])
+                h = query["horizon"][0]
+                if h in ("Weekly", "Monthly"):
+                    where_clauses.append("b.planning_horizon = ?")
+                    params.append(h)
             if "track_id" in query:
-                where_clauses.append("b.track_id = ?")
-                params.append(query["track_id"][0])
+                t = query["track_id"][0]
+                if re.match(r"^TRK-\d+$", t):
+                    where_clauses.append("b.track_id = ?")
+                    params.append(t)
             if where_clauses:
                 sql += " WHERE " + " AND ".join(where_clauses)
             sql += " ORDER BY b.window_start ASC"
@@ -129,6 +191,11 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         # 4. Form T/409 Possession Order Notice
         if path.startswith("/api/v1/possession-notice/"):
             block_id = path.split("/")[-1]
+            if not re.match(r"^BLK-\d+-\d+$", block_id):
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "Invalid block_id format"}).encode())
+                return
+
             notice_text, meta = generate_joint_possession_notice_t409(block_id, db_path=DB_PATH)
             if not notice_text:
                 self._set_headers(404)
@@ -146,8 +213,10 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
             params = []
             where_clauses = []
             if "status" in query:
-                where_clauses.append("status = ?")
-                params.append(query["status"][0])
+                s = query["status"][0]
+                if s in ("Scheduled", "Pending", "Delayed"):
+                    where_clauses.append("status = ?")
+                    params.append(s)
             if "department" in query:
                 where_clauses.append("department = ?")
                 params.append(query["department"][0])
@@ -186,7 +255,7 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         # 404 Fallback
         self._set_headers(404)
         self.wfile.write(json.dumps({
-            "error": "Not Found",
+            "error": "Endpoint Not Found",
             "available_endpoints": [
                 "GET /api/v1/health",
                 "GET /api/v1/tracks",
@@ -203,13 +272,37 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         }, indent=2).encode())
 
     def do_POST(self):
+        # 1. Rate Limiting Check
+        if not self._check_rate_limit():
+            self._set_headers(429)
+            self.wfile.write(json.dumps({"error": "Too Many Requests: Rate limit exceeded (60 req/min)"}).encode())
+            return
+
+        # 2. Authentication Check on All POST Endpoints
+        if not self._check_auth():
+            self._set_headers(401)
+            self.wfile.write(json.dumps({
+                "error": "Unauthorized: Valid API Key required in X-API-Key or Authorization Bearer header."
+            }).encode())
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/")
-        data = self._read_body_json()
+        try:
+            data = self._read_body_json()
+        except SecurityValidationError as e:
+            self._set_headers(400)
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
 
         # 1. Trigger AI Optimizer Pipeline
         if path == "/api/v1/optimizer/run":
             horizon = data.get("horizon", "All")
+            if horizon not in ("All", "Weekly", "Monthly"):
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "Invalid horizon. Must be All, Weekly, or Monthly"}).encode())
+                return
+
             blocks_created = run_scheduler(db_path=DB_PATH, horizon=horizon)
             self._set_headers(200)
             self.wfile.write(json.dumps({
@@ -222,21 +315,39 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         # 2. Submit New Maintenance Work Order
         if path == "/api/v1/jobs":
             import uuid
-            job_id = data.get("job_id") or f"JOB-API-{uuid.uuid4().hex[:5].upper()}"
+            raw_job_id = data.get("job_id") or f"JOB-API-{uuid.uuid4().hex[:5].upper()}"
+            job_id = re.sub(r"[^A-Za-z0-9\-]", "", str(raw_job_id))
             track_id = data.get("track_id", "TRK-101")
-            dept = data.get("department", "Engineering (P-Way)")
-            src = data.get("source_system", "TMS")
-            m_type = data.get("maintenance_type", "Defect Rectification")
-            task = data.get("task", "Ultrasonic Rail Testing Scan")
+            if not re.match(r"^TRK-\d+$", str(track_id)):
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "Invalid track_id; must match TRK-XXX format"}).encode())
+                return
+
+            dept = str(data.get("department", "Engineering (P-Way)"))[:50]
+            src = str(data.get("source_system", "TMS"))[:10]
+            m_type = str(data.get("maintenance_type", "Defect Rectification"))[:40]
+            task = str(data.get("task", "Ultrasonic Rail Testing Scan"))[:100]
             sev = data.get("defect_severity", "High")
-            overdue = int(data.get("overdue_days", 0))
-            psr = int(data.get("speed_restriction_imposed", 0))
-            dur = int(data.get("min_duration_needed", 90))
+            if sev not in ("Critical", "High", "Medium", "Low"):
+                sev = "High"
+
+            try:
+                overdue = max(0, min(90, int(data.get("overdue_days", 0))))
+                psr = max(0, min(160, int(data.get("speed_restriction_imposed", 0))))
+                dur = max(15, min(480, int(data.get("min_duration_needed", 90))))
+            except (ValueError, TypeError):
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "Invalid numeric values in request payload"}).encode())
+                return
+
             pwr = 1 if data.get("power_block_required") else 0
             horizon = data.get("planning_horizon", "Weekly")
+            if horizon not in ("Weekly", "Monthly"):
+                horizon = "Weekly"
+
             req_date = data.get("request_date", datetime.now().strftime("%Y-%m-%d"))
             deadline = data.get("deadline", (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"))
-            mach = data.get("required_machinery", "None")
+            mach = str(data.get("required_machinery", "None"))[:50]
 
             conn = sqlite3.connect(DB_PATH)
             cur = conn.cursor()
@@ -259,17 +370,26 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
                 # Trigger AI Scorer
                 run_scoring_engine(db_path=DB_PATH)
 
+                # Fetch computed AI score
+                conn_score = sqlite3.connect(DB_PATH)
+                c_score = conn_score.cursor()
+                c_score.execute("SELECT ai_score FROM Jobs WHERE job_id = ?", (job_id,))
+                s_row = c_score.fetchone()
+                ai_score = round(s_row[0], 1) if s_row and s_row[0] is not None else 0.0
+                conn_score.close()
+
                 self._set_headers(201)
                 self.wfile.write(json.dumps({
                     "status": "Created",
                     "job_id": job_id,
                     "track_id": track_id,
-                    "task": task
+                    "task": task,
+                    "ai_score": ai_score
                 }, indent=2).encode())
             except Exception as e:
                 conn.close()
                 self._set_headers(400)
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
+                self.wfile.write(json.dumps({"error": f"Database insertion failed: {str(e)}"}).encode())
             return
 
         # 3. Simulate Train Delay
@@ -277,7 +397,12 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
             track_id = data.get("track_id", "TRK-101")
             run_date = data.get("run_date")
             train_id = data.get("train_id_or_number", "22436")
-            delay_mins = int(data.get("delay_mins", 45))
+            try:
+                delay_mins = max(1, min(360, int(data.get("delay_mins", 45))))
+            except (ValueError, TypeError):
+                self._set_headers(400)
+                self.wfile.write(json.dumps({"error": "delay_mins must be a valid integer between 1 and 360"}).encode())
+                return
 
             sim_res = simulate_train_delay(track_id, run_date, train_id, delay_mins, db_path=DB_PATH)
             self._set_headers(200)
@@ -287,22 +412,28 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         # 4. Generate Proactive Work Order from PdM
         if path == "/api/v1/pdm/generate-work-order":
             track_id = data.get("track_id")
-            if not track_id:
+            if not track_id or not re.match(r"^TRK-\d+$", str(track_id)):
                 self._set_headers(400)
-                self.wfile.write(json.dumps({"error": "track_id is required"}).encode())
+                self.wfile.write(json.dumps({"error": "Valid track_id (TRK-XXX) is required"}).encode())
                 return
             new_job = generate_proactive_work_order(track_id, db_path=DB_PATH)
             self._set_headers(201 if new_job else 400)
-            self.wfile.write(json.dumps({"created_job_id": new_job}).encode())
+            self.wfile.write(json.dumps({
+                "job_id": new_job,
+                "created_job_id": new_job,
+                "source_system": "TMS-PdM"
+            }).encode())
             return
 
         self._set_headers(404)
         self.wfile.write(json.dumps({"error": "Unknown POST endpoint"}).encode())
 
 
-def run_api_server(port=8501):
+def run_api_server(port=8000):
     server = HTTPServer(("127.0.0.1", port), RailwayAPIHandler)
-    print(f"Railway AI Operations REST API running at http://127.0.0.1:{port}")
+    print(f"Railway AI Operations Hardened REST API running at http://127.0.0.1:{port}")
+    print(f"Authentication: Active (Default API Key: {VALID_API_KEY})")
+    print(f"Rate Limiter: Active ({MAX_REQUESTS_PER_MINUTE} req/min)")
     server.serve_forever()
 
 

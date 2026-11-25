@@ -1,9 +1,21 @@
 import os
 import sqlite3
+import logging
+from typing import Tuple, Dict, Any, Optional
 import numpy as np
 
-def compute_priority_score(defect_severity, overdue_days, route_class, track_age, 
-                           gmt_tonnage, track_criticality, psr_kmh, source_system):
+logger = logging.getLogger("railway_scheduler.scorer")
+
+def compute_priority_score(
+    defect_severity: str,
+    overdue_days: int,
+    route_class: str,
+    track_age: int,
+    gmt_tonnage: float,
+    track_criticality: str,
+    psr_kmh: Optional[int],
+    source_system: str
+) -> Tuple[float, Dict[str, float]]:
     """
     Computes a multi-factorial AI Priority Score (0-100) based on:
     1. Safety & Defect Severity Risk (Max 30 pts)
@@ -95,7 +107,7 @@ def compute_priority_score(defect_severity, overdue_days, route_class, track_age
     return final_score, breakdown
 
 
-def run_scoring_engine(db_path=None, score_all=False):
+def run_scoring_engine(db_path: Optional[str] = None, score_all: bool = False) -> int:
     """Calculates and persists AI priority scores for maintenance work orders."""
     print("Waking up the AI Prioritization Engine...\n")
     

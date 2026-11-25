@@ -1,6 +1,11 @@
 import os
 import sqlite3
+import logging
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+
+logger = logging.getLogger("railway_scheduler.optimizer")
+
 try:
     from ai_scorer import run_scoring_engine
 except ImportError:
@@ -21,7 +26,7 @@ except ImportError:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from safety_rules import audit_block_safety, check_machine_availability
 
-def run_scheduler(db_path=None, horizon="All"):
+def run_scheduler(db_path: Optional[str] = None, horizon: str = "All") -> int:
     """
     Automatic Coordinated Multi-Department Block Optimizer:
     1. Prioritizes jobs using AI priority scores.

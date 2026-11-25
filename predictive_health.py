@@ -1,12 +1,23 @@
 import os
 import sqlite3
+import logging
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 
-def compute_track_health(track_age, gmt_tonnage, speed_limit_kmh, route_class,
-                         days_since_inspection, days_since_tamping,
-                         rail_wear_pct=15.0, ballast_condition="Good"):
+logger = logging.getLogger("railway_scheduler.pdm")
+
+def compute_track_health(
+    track_age: int,
+    gmt_tonnage: float,
+    speed_limit_kmh: int,
+    route_class: str,
+    days_since_inspection: int,
+    days_since_tamping: int,
+    rail_wear_pct: float = 15.0,
+    ballast_condition: str = "Good"
+) -> Dict[str, Any]:
     """
     Computes Track Quality Index (TQI, 0-100) and multi-horizon defect probability.
     
@@ -100,7 +111,7 @@ def compute_track_health(track_age, gmt_tonnage, speed_limit_kmh, route_class,
     }
 
 
-def analyze_all_tracks_health(db_path=None):
+def analyze_all_tracks_health(db_path: Optional[str] = None) -> pd.DataFrame:
     """Fetches all corridor tracks and calculates predictive health analytics."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if db_path is None:
@@ -177,7 +188,7 @@ def analyze_all_tracks_health(db_path=None):
     return pd.DataFrame(records)
 
 
-def get_predictive_alerts(db_path=None, risk_threshold=35.0):
+def get_predictive_alerts(db_path: Optional[str] = None, risk_threshold: float = 35.0) -> pd.DataFrame:
     """Identifies tracks requiring proactive maintenance before defect emergence."""
     df = analyze_all_tracks_health(db_path=db_path)
     if df.empty:
@@ -186,7 +197,7 @@ def get_predictive_alerts(db_path=None, risk_threshold=35.0):
     return alerts
 
 
-def generate_proactive_work_order(track_id, db_path=None):
+def generate_proactive_work_order(track_id: str, db_path: Optional[str] = None) -> Optional[str]:
     """
     Automatically converts a predictive health alert into a formal BDMS work order
     in the database to prevent track faults before they happen.
