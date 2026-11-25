@@ -1,9 +1,16 @@
+"""
+Synthetic Infrastructure & Timetable Generator for the Automatic Block Planning System (ABPS).
+Generates multi-department maintenance backlogs, corridor availability, and machine fleet records.
+"""
+
 import os
 import sqlite3
 import random
+from typing import Optional, List, Tuple, Any
 from datetime import datetime, timedelta
 
-def calculate_availability_for_corridors(cursor):
+
+def calculate_availability_for_corridors(cursor: sqlite3.Cursor) -> int:
     """Calculates non-overlapping free time windows between train schedules for each track and date."""
     # 1. Clear old availability records
     cursor.execute("DELETE FROM Corridor_Availability;")
@@ -101,7 +108,7 @@ def calculate_availability_for_corridors(cursor):
     print(f"-> Calculated {avail_count} non-null corridor availability windows from train schedules.")
 
 
-def generate_large_dataset(db_path=None):
+def generate_large_dataset(db_path: Optional[str] = None) -> None:
     """Generates authentic railway data spanning TMS, SMMS, TDMS, COA Passenger & Goods schedules."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if db_path is None:

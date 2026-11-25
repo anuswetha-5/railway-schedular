@@ -16,7 +16,8 @@ DB_PATH = os.path.join(BASE_DIR, "database", "railway_planning.db")
 
 class TestAPIEndpoints(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
+        """Initializes fresh authenticated test request headers before each test case."""
         RATE_LIMIT_STORE.clear()
         self.auth_headers = {"X-API-Key": VALID_API_KEY, "Content-Type": "application/json"}
 

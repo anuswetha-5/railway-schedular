@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import sqlite3
 import uuid
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
@@ -51,7 +52,8 @@ if is_cloud or not can_write_repo:
 else:
     DB_PATH = BUNDLED_DB
 
-def get_connection():
+def get_connection() -> sqlite3.Connection:
+    """Creates a high-performance SQLite connection configured with caching pragmas."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
     try:
@@ -77,17 +79,17 @@ from disruption_simulator import simulate_train_delay, simulate_emergency_posses
 from dispatch_exporter import generate_joint_possession_notice_t409, export_blocks_to_csv, export_backlog_to_csv, export_fleet_to_csv
 from safety_rules import audit_block_safety
 
-def run_scheduler_pipeline(horizon="All"):
+def run_scheduler_pipeline(horizon: str = "All") -> int:
     """Runs the AI Prioritization and Coordinated Shadow Block Optimizer."""
     return run_scheduler(db_path=DB_PATH, horizon=horizon)
 
-def reset_database():
+def reset_database() -> None:
     """Regenerates the complete authentic Indian Railways dataset and schedules blocks."""
     generate_large_dataset(db_path=DB_PATH)
     run_scoring_engine(db_path=DB_PATH, score_all=True)
     run_scheduler(db_path=DB_PATH, horizon="All")
 
-def ensure_database_ready():
+def ensure_database_ready() -> None:
     """Auto-initializes database if running fresh on Streamlit Cloud or container mounts."""
     needed_tables = ["Tracks", "Trains", "Jobs", "Corridor_Availability", "Block_Register", "Block_Jobs", "Machinery_Fleet"]
     must_reset = False
@@ -122,7 +124,12 @@ def ensure_database_ready():
 
 ensure_database_ready()
 
-def safe_read_sql(sql, conn, params=None, default_cols=None):
+def safe_read_sql(
+    sql: str,
+    conn: sqlite3.Connection,
+    params: Optional[Any] = None,
+    default_cols: Optional[List[str]] = None
+) -> pd.DataFrame:
     """Executes SQL query and returns a DataFrame, returning fallback empty DataFrame on error."""
     try:
         if params is not None:
@@ -367,10 +374,12 @@ st.markdown(
 conn = get_connection()
 
 @st.cache_data(ttl=60)
-def fetch_kpi_metrics(db_path):
+def fetch_kpi_metrics(db_path: str) -> Tuple[int, int, int, int, int, int, float]:
+    """Calculates summary operational KPIs across maintenance jobs, blocks, and saved downtime."""
     c = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
     try:
-        def cq(sql):
+        def cq(sql: str) -> int:
+            """Executes scalar count query with graceful zero fallback."""
             try:
                 r = pd.read_sql_query(sql, c)
                 return int(r.iloc[0, 0]) if not r.empty and pd.notna(r.iloc[0, 0]) else 0
@@ -626,7 +635,8 @@ with st.sidebar:
 # LOAD DATA USED BY MULTIPLE TABS
 # ============================================================
 @st.cache_data(ttl=60)
-def fetch_dashboard_tables(db_path):
+def fetch_dashboard_tables(db_path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Loads consolidated database tables for multi-tab operational views."""
     c = sqlite3.connect(db_path, timeout=30, check_same_thread=False)
     try:
         b_df = pd.read_sql_query("""
@@ -719,7 +729,7 @@ blocks_df, jobs_df, avail_df, trains_df = fetch_dashboard_tables(DB_PATH)
 # ============================================================
 # THEME-SAFE HTML TABLES
 # ============================================================
-def _score_color(score):
+def _score_color(score: float) -> str:
     """Green for low priority, amber in the middle, red for urgent."""
     if score >= 75:
         return resolved_theme["red"]
@@ -728,7 +738,8 @@ def _score_color(score):
     return resolved_theme["green"]
 
 
-def render_vintage_table(df, progress_column=None):
+def render_vintage_table(df: pd.DataFrame, progress_column: Optional[str] = None) -> None:
+    """Renders accessible WCAG 2.1 AA compliant HTML table with ARIA progress bars and status pills."""
     if df.empty:
         return
     import html
@@ -777,7 +788,8 @@ def render_vintage_table(df, progress_column=None):
 # ============================================================
 # CHART THEME HELPER
 # ============================================================
-def apply_chart_theme(fig, title_margin=55, show_legend=None):
+def apply_chart_theme(fig: Any, title_margin: int = 55, show_legend: Optional[bool] = None) -> Any:
+    """Applies standardized high-contrast palette and layout styling to Plotly figures."""
     fig.update_layout(
         paper_bgcolor=resolved_theme["chart_paper"],
         plot_bgcolor=resolved_theme["chart_plot"],

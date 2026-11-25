@@ -11,12 +11,13 @@ sys.path.insert(0, os.path.join(BASE_DIR, "database"))
 from themes import THEMES
 
 
-def hex_to_relative_luminance(hex_str):
+def hex_to_relative_luminance(hex_str: str) -> float:
     """Calculates relative luminance according to WCAG 2.1 formula."""
     hex_str = hex_str.lstrip("#")
     r, g, b = [int(hex_str[i:i+2], 16) / 255.0 for i in (0, 2, 4)]
     
-    def transform(c):
+    def transform(c: float) -> float:
+        """Linearizes sRGB color component according to IEC 61966-2-1 standard."""
         return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
 
     r_lin = transform(r)
@@ -25,7 +26,7 @@ def hex_to_relative_luminance(hex_str):
     return 0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin
 
 
-def calculate_contrast_ratio(hex1, hex2):
+def calculate_contrast_ratio(hex1: str, hex2: str) -> float:
     """Calculates WCAG 2.1 contrast ratio between two hex colors."""
     l1 = hex_to_relative_luminance(hex1)
     l2 = hex_to_relative_luminance(hex2)

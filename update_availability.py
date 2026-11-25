@@ -1,9 +1,16 @@
+"""
+Corridor Availability Window Calculator for the Automatic Block Planning System (ABPS).
+Calculates unreserved time intervals between scheduled trains across physical track sections.
+"""
+
 import os
 import sqlite3
+from typing import Optional, List, Tuple, Any
 from datetime import datetime
 
-def calculate_availability_from_train_schedules(db_path=None):
-    """Calculates non-overlapping free time windows between train schedules."""
+
+def calculate_availability_from_train_schedules(db_path: Optional[str] = None) -> int:
+    """Calculates non-overlapping free time windows between train schedules across all corridors."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
     if db_path is None:
@@ -13,7 +20,7 @@ def calculate_availability_from_train_schedules(db_path=None):
 
     if not os.path.exists(db_path):
         print(f"Error: Could not find railway_planning.db at '{db_path}'")
-        return
+        return 0
 
     print(f"Connecting to database at: {db_path}")
     conn = sqlite3.connect(db_path)
@@ -27,7 +34,7 @@ def calculate_availability_from_train_schedules(db_path=None):
     corridor_days = cursor.fetchall()
 
     availability_id_counter = 501
-    inserted_count = 0
+    records_to_insert: List[Tuple[str, str, str, str, str, int, str]] = []
 
     for track_id, run_date in corridor_days:
         cursor.execute("""
@@ -40,7 +47,7 @@ def calculate_availability_from_train_schedules(db_path=None):
         train_rows = cursor.fetchall()
 
         # Merge overlapping train intervals
-        merged_intervals = []
+        merged_intervals: List[List[Any]] = []
         for arr, dep, t_type, flex in train_rows:
             start = datetime.strptime(f"{run_date} {arr}", "%Y-%m-%d %H:%M")
             end = datetime.strptime(f"{run_date} {dep}", "%Y-%m-%d %H:%M")
@@ -64,13 +71,7 @@ def calculate_availability_from_train_schedules(db_path=None):
                     avl_id = f"AVL-{availability_id_counter}"
                     availability_id_counter += 1
                     w_type = "Goods Regulated Window" if dur >= 180 else "Natural Train Gap"
-                    
-                    cursor.execute("""
-                        INSERT INTO Corridor_Availability (
-                            availability_id, track_id, available_date, window_start, window_end,
-                            duration_mins, window_type, consumed_mins
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-                    """, (
+                    records_to_insert.append((
                         avl_id,
                         track_id,
                         run_date,
@@ -79,7 +80,6 @@ def calculate_availability_from_train_schedules(db_path=None):
                         dur,
                         w_type
                     ))
-                    inserted_count += 1
 
             current_pointer = max(current_pointer, end)
 
@@ -90,13 +90,7 @@ def calculate_availability_from_train_schedules(db_path=None):
                 avl_id = f"AVL-{availability_id_counter}"
                 availability_id_counter += 1
                 w_type = "Night Corridor Gap" if dur >= 180 else "Natural Train Gap"
-
-                cursor.execute("""
-                    INSERT INTO Corridor_Availability (
-                        availability_id, track_id, available_date, window_start, window_end,
-                        duration_mins, window_type, consumed_mins
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-                """, (
+                records_to_insert.append((
                     avl_id,
                     track_id,
                     run_date,
@@ -105,11 +99,21 @@ def calculate_availability_from_train_schedules(db_path=None):
                     dur,
                     w_type
                 ))
-                inserted_count += 1
+
+    if records_to_insert:
+        cursor.executemany("""
+            INSERT INTO Corridor_Availability (
+                availability_id, track_id, available_date, window_start, window_end,
+                duration_mins, window_type, consumed_mins
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+        """, records_to_insert)
 
     conn.commit()
     conn.close()
+    inserted_count = len(records_to_insert)
     print(f"[OK] Successfully calculated {inserted_count} real availability windows from train schedules!")
+    return inserted_count
+
 
 if __name__ == "__main__":
     calculate_availability_from_train_schedules()

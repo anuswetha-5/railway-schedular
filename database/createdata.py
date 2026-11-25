@@ -1,7 +1,14 @@
+"""
+Database Schema Initializer for the Automatic Block Planning System (ABPS).
+Creates and migrates the 7 core relational tables, foreign keys, and indexes.
+"""
+
 import os
 import sqlite3
+from typing import Optional, List, Tuple
 
-def init_db(db_path=None, drop_existing=False):
+
+def init_db(db_path: Optional[str] = None, drop_existing: bool = False) -> None:
     """Initializes the relational SQLite database for the Automatic Block Planning System."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     if db_path is None:
@@ -167,7 +174,8 @@ def init_db(db_path=None, drop_existing=False):
     """)
 
     # Auto-migration: ensure new columns exist in pre-existing tables without data drop
-    def ensure_columns(table_name, col_defs):
+    def ensure_columns(table_name: str, col_defs: List[Tuple[str, str]]) -> None:
+        """Adds missing schema columns safely to existing SQLite tables."""
         cursor.execute(f"PRAGMA table_info({table_name})")
         existing_cols = {row[1] for row in cursor.fetchall()}
         for col_name, col_type in col_defs:

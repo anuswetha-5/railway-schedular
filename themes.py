@@ -3,6 +3,8 @@ Theme registry and CSS variable definitions for the Indian Railways AI Corridor 
 Ensures single-source-of-truth styling across custom CSS and Plotly data visualizations.
 """
 
+from typing import Dict, Any
+
 THEMES = {
     "Light": {
         "color_scheme": "light",
@@ -43,7 +45,7 @@ THEMES = {
 }
 
 
-def css_vars_block(theme):
+def css_vars_block(theme: Dict[str, Any]) -> str:
     """Turn a theme dict into a `--name:value;` string for :root."""
     keys = [
         "bg", "panel", "panel2", "line", "line2", "text", "muted", "soft",

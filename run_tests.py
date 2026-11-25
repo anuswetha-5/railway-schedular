@@ -15,7 +15,8 @@ sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, os.path.join(BASE_DIR, "database"))
 
 
-def print_banner():
+def print_banner() -> None:
+    """Prints the executive audit ASCII header and execution environment telemetry."""
     print("=" * 80)
     print("    INDIAN RAILWAYS AUTOMATIC BLOCK PLANNING SYSTEM (ABPS)")
     print("        COMPREHENSIVE TEST SUITE & PLATFORM VERIFICATION")
@@ -27,7 +28,8 @@ def print_banner():
     print()
 
 
-def run_all_suites():
+def run_all_suites() -> int:
+    """Executes all 5 verification dimensions and prints the executive test report."""
     print_banner()
 
     test_modules = [

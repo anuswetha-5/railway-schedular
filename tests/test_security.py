@@ -17,26 +17,39 @@ import html
 DB_PATH = os.path.join(BASE_DIR, "database", "railway_planning.db")
 
 
+from typing import Optional, Dict, Any, Tuple, Union
+
 class MockSocket:
-    def __init__(self, data=b""):
+    """Mock socket emulation for high-speed in-memory HTTP handler testing."""
+
+    def __init__(self, data: bytes = b"") -> None:
+        """Initializes mock socket buffer with simulated incoming bytes."""
         self._data = data
         self._written = io.BytesIO()
 
-    def makefile(self, mode="r", buffering=-1):
+    def makefile(self, mode: str = "r", buffering: int = -1) -> Union[io.BytesIO, io.StringIO]:
+        """Provides simulated stream reader or writer."""
         if "b" in mode:
             if "r" in mode:
                 return io.BytesIO(self._data)
             return self._written
         return io.StringIO(self._data.decode("utf-8", errors="replace"))
 
-    def sendall(self, b):
+    def sendall(self, b: bytes) -> None:
+        """Simulates sending raw data across socket."""
         self._written.write(b)
 
-    def close(self):
+    def close(self) -> None:
+        """Simulates closing socket connection."""
         pass
 
 
-def execute_mock_request(method, path, headers=None, body=b""):
+def execute_mock_request(
+    method: str,
+    path: str,
+    headers: Optional[Dict[str, str]] = None,
+    body: Union[bytes, str] = b""
+) -> Tuple[int, Dict[str, str], bytes]:
     """Executes a mock HTTP request against RailwayAPIHandler without opening a real network port."""
     headers = headers or {}
     raw_req = f"{method} {path} HTTP/1.1\r\n"
@@ -76,7 +89,8 @@ def execute_mock_request(method, path, headers=None, body=b""):
 
 class TestSecurityFramework(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
+        """Clears client rate limiter store before each test execution."""
         RATE_LIMIT_STORE.clear()
 
     def test_sql_injection_defense(self):

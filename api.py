@@ -4,6 +4,7 @@ import json
 import sqlite3
 import time
 import re
+from typing import Optional, List, Dict, Any, Tuple
 from collections import defaultdict
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -65,7 +66,8 @@ RATE_LIMIT_STORE = defaultdict(list)
 class RailwayAPIHandler(BaseHTTPRequestHandler):
     """Hardened REST API Handler for Indian Railways AI Operations & Block Planning System."""
 
-    def _set_headers(self, status=200, content_type="application/json"):
+    def _set_headers(self, status: int = 200, content_type: str = "application/json") -> None:
+        """Sets standard and defense-in-depth security response headers."""
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         # Defense-in-Depth Security Headers
@@ -81,7 +83,8 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
         self.end_headers()
 
-    def do_OPTIONS(self):
+    def do_OPTIONS(self) -> None:
+        """Handles HTTP CORS preflight requests."""
         self._set_headers(200)
 
     def _check_rate_limit(self) -> bool:
@@ -104,7 +107,8 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
                 key = auth_header[7:].strip()
         return key == VALID_API_KEY
 
-    def _read_body_json(self):
+    def _read_body_json(self) -> Dict[str, Any]:
+        """Reads, limits, and parses incoming request body JSON."""
         content_length = int(self.headers.get("Content-Length", 0))
         if content_length == 0:
             return {}
@@ -116,7 +120,8 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         except Exception:
             raise SecurityValidationError("Malformed JSON body")
 
-    def do_GET(self):
+    def do_GET(self) -> None:
+        """Handles HTTP GET operational query endpoints."""
         # 1. Rate Limiting Check
         if not self._check_rate_limit():
             self._set_headers(429)
@@ -292,7 +297,8 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
             ]
         }, indent=2).encode())
 
-    def do_POST(self):
+    def do_POST(self) -> None:
+        """Handles HTTP POST operational command and simulation endpoints."""
         # 1. Rate Limiting Check
         if not self._check_rate_limit():
             self._set_headers(429)
@@ -450,7 +456,8 @@ class RailwayAPIHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps({"error": "Unknown POST endpoint"}).encode())
 
 
-def run_api_server(port=8000):
+def run_api_server(port: int = 8000) -> None:
+    """Launches the production-hardened REST API daemon server."""
     server = HTTPServer(("127.0.0.1", port), RailwayAPIHandler)
     print(f"Railway AI Operations Hardened REST API running at http://127.0.0.1:{port}")
     print(f"Authentication: Active (Default API Key: {VALID_API_KEY})")
